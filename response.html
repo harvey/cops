@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Text Snippet Manager</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f8f9fa;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #343a40;
+    }
+    .category {
+      background: #ffffff;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      padding: 15px;
+    }
+    .category-header {
+      font-size: 1.2em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .cat-actions {
+      display: flex;
+      gap: 5px;
+    }
+    .category-content {
+      margin-top: 10px;
+    }
+    .snippet {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .snippet textarea {
+      width: 100%;
+      padding: 5px;
+      resize: none;
+      box-sizing: border-box;
+      /* Increase min-height for better editing space */
+      min-height: 80px;
+      overflow-y: auto;
+    }
+    .snippet-text {
+      flex: 1;
+      background: #f1f3f5;
+      padding: 10px;
+      border-radius: 5px;
+      margin-right: 10px;
+      word-wrap: break-word;
+      transition: background-color 0.5s ease;
+      white-space: pre-wrap; /* Preserve line breaks */
+    }
+    /* Flash effect for copy feedback */
+    .flash {
+      background-color: #a2eaae;
+    }
+    .snippet-buttons button {
+      margin-left: 5px;
+    }
+    .add-snippet, .add-category {
+      margin-top: 10px;
+    }
+    button {
+      padding: 5px 10px;
+      border: none;
+      background: #007bff;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    input[type="text"] {
+      padding: 5px;
+      width: calc(100% - 90px);
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Text Snippet Manager</h1>
+<div id="categories"></div>
+
+<div class="add-category">
+  <input type="text" id="new-category-name" placeholder="New category name">
+  <button onclick="addCategory()">+ Add Category</button>
+</div>
+
+<script>
+  // Load saved data or default if not found.
+  let data = JSON.parse(localStorage.getItem('textSnippets')) || {
+    "Greeting": ["Hello this is xyz"]
+  };
+  
+  // Store the current open/closed state of each category.
+  let openState = {};
+
+  // Save current data state into localStorage.
+  function saveData() {
+    localStorage.setItem('textSnippets', JSON.stringify(data));
+    renderCategories();
+  }
+
+  // Auto-resize function for textareas.
+  function autoResize(textarea) {
+    // Remove the manual overflow change: allow scroll if needed.
+    textarea.style.height = 'auto';
+    // Ensure minimum height is respected.
+    textarea.style.height = Math.max(textarea.scrollHeight, 80) + 'px';
+  }
+
+  // Render all categories and their texts.
+  function renderCategories() {
+    const container = document.getElementById('categories');
+    container.innerHTML = '';
+
+    for (let category in data) {
+      // If not defined, default to open.
+      if (openState[category] === undefined) {
+        openState[category] = true;
+      }
+
+      const catEl = document.createElement('div');
+      catEl.className = 'category';
+
+      // Create the category header.
+      const header = document.createElement('div');
+      header.className = 'category-header';
+      
+      // Header title and toggle indicator.
+      const title = document.createElement('span');
+      title.textContent = category;
+      
+      const toggleIndicator = document.createElement('span');
+      toggleIndicator.textContent = '▼';
+      
+      // Group for category action buttons.
+      const catActions = document.createElement('div');
+      catActions.className = 'cat-actions';
+      
+      // Delete category button with double confirmation.
+      const deleteCatBtn = document.createElement('button');
+      deleteCatBtn.textContent = 'Delete Category';
+      deleteCatBtn.onclick = (e) => {
+        // Prevent header toggle when clicking delete.
+        e.stopPropagation();
+        if (
+          confirm("Are you sure you want to delete the category '" + category + "'?") &&
+          confirm("Deleting this category will remove all of its snippets. Confirm deletion?")
+        ) {
+          delete data[category];
+          delete openState[category];
+          saveData();
+        }
+      };
+      catActions.appendChild(deleteCatBtn);
+      
+      // Append title, indicator, and actions to header.
+      header.appendChild(title);
+      header.appendChild(toggleIndicator);
+      header.appendChild(catActions);
+      
+      // Create the container for this category's content.
+      const content = document.createElement('div');
+      content.className = 'category-content';
+      if (!openState[category]) {
+        content.classList.add('hidden');
+      }
+      
+      // Toggle category content and update openState.
+      header.onclick = () => {
+        openState[category] = !openState[category];
+        content.classList.toggle('hidden');
+      };
+      
+      catEl.appendChild(header);
+
+      // Create snippet entries.
+      data[category].forEach((text, index) => {
+        const snippet = document.createElement('div');
+        snippet.className = 'snippet';
+
+        const textSpan = document.createElement('div');
+        textSpan.className = 'snippet-text';
+        textSpan.textContent = text;
+
+        const buttons = document.createElement('div');
+        buttons.className = 'snippet-buttons';
+
+        // Copy button with flash feedback.
+        const copyBtn = document.createElement('button');
+        copyBtn.textContent = 'Copy';
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(text).then(() => {
+            textSpan.classList.add('flash');
+            setTimeout(() => {
+              textSpan.classList.remove('flash');
+            }, 1000);
+          });
+        };
+
+        // Edit button with auto-resizing textarea.
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.onclick = () => {
+          showEdit(snippet, category, index, text);
+        };
+
+        // Delete snippet with confirmation.
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.onclick = () => {
+          if (confirm("Are you sure you want to delete?")) {
+            data[category].splice(index, 1);
+            saveData();
+          }
+        };
+
+        buttons.appendChild(copyBtn);
+        buttons.appendChild(editBtn);
+        buttons.appendChild(deleteBtn);
+
+        snippet.appendChild(textSpan);
+        snippet.appendChild(buttons);
+        content.appendChild(snippet);
+      });
+
+      // Area to add a new snippet.
+      const addDiv = document.createElement('div');
+      addDiv.className = 'add-snippet';
+      addDiv.innerHTML = `
+        <input type="text" placeholder="New text" id="new-${category}">
+        <button onclick="addSnippet('${category}')">+ Add</button>
+      `;
+      content.appendChild(addDiv);
+      catEl.appendChild(content);
+      container.appendChild(catEl);
+    }
+  }
+
+  // Function to add a new snippet to a category.
+  function addSnippet(category) {
+    const input = document.getElementById(`new-${category}`);
+    const val = input.value;
+    if (val.trim()) {
+      data[category].push(val);
+      input.value = '';
+      saveData();
+    }
+  }
+
+  // Function to add a new category.
+  function addCategory() {
+    const input = document.getElementById('new-category-name');
+    const val = input.value.trim();
+    if (val && !data[val]) {
+      data[val] = [];
+      openState[val] = true;  // default open
+      input.value = '';
+      saveData();
+    }
+  }
+
+  // Shows an inline edit box for a snippet with auto-resize.
+  function showEdit(snippet, category, index, oldText) {
+    snippet.innerHTML = '';
+    
+    const textarea = document.createElement('textarea');
+    textarea.value = oldText;
+    // Remove fixed overflow so that vertical scrolling is handled automatically.
+    textarea.style.overflowY = 'auto';
+    
+    // Auto-resize initially.
+    autoResize(textarea);
+    // Resize on input.
+    textarea.addEventListener('input', function() {
+      autoResize(textarea);
+    });
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    saveBtn.onclick = () => {
+      const newText = textarea.value;
+      if (newText.trim()) {
+        data[category][index] = newText;
+        saveData();
+      }
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.onclick = () => {
+      saveData();
+    };
+
+    snippet.appendChild(textarea);
+    snippet.appendChild(saveBtn);
+    snippet.appendChild(cancelBtn);
+  }
+
+  // Initial render call.
+  renderCategories();
+</script>
+
+</body>
+</html>
