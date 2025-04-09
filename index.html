@@ -14,6 +14,13 @@
       text-align: center;
       color: #343a40;
     }
+    .toggle-all {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .toggle-all button {
+      margin: 0 5px;
+    }
     .category {
       background: #ffffff;
       border: 1px solid #dee2e6;
@@ -45,7 +52,7 @@
       padding: 5px;
       resize: none;
       box-sizing: border-box;
-      /* Increase min-height for better editing space */
+      /* Provide more editing space */
       min-height: 80px;
       overflow-y: auto;
     }
@@ -94,6 +101,12 @@
 <body>
 
 <h1>Text Snippet Manager</h1>
+
+<div class="toggle-all">
+  <button onclick="expandAll()">Expand All</button>
+  <button onclick="collapseAll()">Collapse All</button>
+</div>
+
 <div id="categories"></div>
 
 <div class="add-category">
@@ -107,20 +120,19 @@
     "Greeting": ["Hello this is xyz"]
   };
   
-  // Store the current open/closed state of each category.
-  let openState = {};
+  // Load saved category open state or default to an empty object.
+  let openState = JSON.parse(localStorage.getItem('openState')) || {};
 
-  // Save current data state into localStorage.
+  // Save current data state and openState into localStorage.
   function saveData() {
     localStorage.setItem('textSnippets', JSON.stringify(data));
+    localStorage.setItem('openState', JSON.stringify(openState));
     renderCategories();
   }
 
   // Auto-resize function for textareas.
   function autoResize(textarea) {
-    // Remove the manual overflow change: allow scroll if needed.
     textarea.style.height = 'auto';
-    // Ensure minimum height is respected.
     textarea.style.height = Math.max(textarea.scrollHeight, 80) + 'px';
   }
 
@@ -130,7 +142,7 @@
     container.innerHTML = '';
 
     for (let category in data) {
-      // If not defined, default to open.
+      // Default open state to true if not defined.
       if (openState[category] === undefined) {
         openState[category] = true;
       }
@@ -157,7 +169,6 @@
       const deleteCatBtn = document.createElement('button');
       deleteCatBtn.textContent = 'Delete Category';
       deleteCatBtn.onclick = (e) => {
-        // Prevent header toggle when clicking delete.
         e.stopPropagation();
         if (
           confirm("Are you sure you want to delete the category '" + category + "'?") &&
@@ -186,6 +197,7 @@
       header.onclick = () => {
         openState[category] = !openState[category];
         content.classList.toggle('hidden');
+        localStorage.setItem('openState', JSON.stringify(openState));
       };
       
       catEl.appendChild(header);
@@ -253,6 +265,22 @@
     }
   }
 
+  // Expand all categories.
+  function expandAll() {
+    for (let category in data) {
+      openState[category] = true;
+    }
+    saveData();
+  }
+
+  // Collapse all categories.
+  function collapseAll() {
+    for (let category in data) {
+      openState[category] = false;
+    }
+    saveData();
+  }
+
   // Function to add a new snippet to a category.
   function addSnippet(category) {
     const input = document.getElementById(`new-${category}`);
@@ -282,7 +310,6 @@
     
     const textarea = document.createElement('textarea');
     textarea.value = oldText;
-    // Remove fixed overflow so that vertical scrolling is handled automatically.
     textarea.style.overflowY = 'auto';
     
     // Auto-resize initially.
